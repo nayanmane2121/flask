@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Question Form</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 50px;
+        }
+
+        #dynamicForm {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .question-block {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .question-block label {
+            font-size: 16px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .question-dropdown {
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .submit-btn {
+            display: none;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+
+        .username-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .username-input {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            width: 50%;
+        }
+
+        .start-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .start-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Dynamic Question Form</h1>
+    
+    <!-- Username Section -->
+    <div class="username-section" id="usernameSection">
+        <label for="username">Enter your name:</label>
+        <input type="text" id="username" class="username-input" placeholder="Enter your name" />
+        <button class="start-btn" id="startBtn">Start</button>
+    </div>
+
+    <!-- Dynamic Form Section -->
+    <form id="dynamicForm" style="display: none;">
+        <div id="question-container"></div>
+        <button type="button" class="submit-btn" id="submitBtn">Submit</button>
+    </form>
+
+    <script>
+        let selectedValues = [];
+        let currentQuestionId = 0;
+        let userName = "";
+
+        // Show the dynamic form after name is provided
+        $('#startBtn').click(function () {
+            userName = $('#username').val().trim();
+            if (userName) {
+                $('#usernameSection').hide(); // Hide username section
+                $('#dynamicForm').show(); // Show the dynamic form
+                loadNextQuestion(); // Load the first question
+            } else {
+                alert("Please enter your name.");
+            }
+        });
+
+        // Fetch next question from server
+        function loadNextQuestion() {
+            $.ajax({
+                url: '/get_question',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ currentQuestionId: currentQuestionId, selectedValues: selectedValues }),
+                success: function (response) {
+                    if (response) {
+                        const questionBlock = `
+                            <div class="question-block" id="question-${response.id}">
+                                <label for="question-${response.id}">${response.question}</label>
+                                <select class="question-dropdown" data-id="${response.id}">
+                                    <option value="">-- Select an option --</option>
+                                    ${response.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                                </select>
+                            </div>
+                        `;
+                        $('#question-container').append(questionBlock);
+                        // Check if all questions have been answered after each question load
+                        checkAllQuestionsAnswered();
+                    } else {
+                        $('#question-container').append('<p>No more questions available.</p>');
+                    }
+                },
+                error: function (error) {
+                    alert('Error loading question: ' + error.responseText);
+                }
+            });
+        }
+
+        function checkAllQuestionsAnswered() {
+            // Check if all questions have been answered
+            const allAnswered = $('.question-dropdown').toArray().every(dropdown => $(dropdown).val() !== "");
+            
+            if (allAnswered) {
+                $('#submitBtn').show(); // Show the submit button if all are answered
+            } else {
+                $('#submitBtn').hide(); // Hide the submit button if not all are answered
+            }
+        }
+
+        $(document).ready(function () {
+            $('#submitBtn').click(function () {
+                const formData = selectedValues.map((value, index) => `Question ${index + 1}: ${value}`).join('\n');
+                
+                // Send the form data to the Flask backend
+                $.ajax({
+                    url: '/submit_form',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ userName: userName, formData: formData }),
+                    success: function (response) {
+                        alert(response.message); // Show success message
+                    },
+                    error: function (error) {
+                        alert('Error sending data: ' + error.responseText); // Show error message
+                    }
+                });
+            });
+        });
+
+        $(document).on('change', '.question-dropdown', function () {
+            const selectedValue = $(this).val();
+            currentQuestionId = parseInt($(this).data('id'));
+            if (selectedValue) {
+                selectedValues.push(selectedValue);
+                loadNextQuestion();
+            }
+            // Check if all questions have been answered after each selection
+            checkAllQuestionsAnswered();
+        });
+    </script>
+</body>
+
+</html>
