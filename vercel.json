@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "app.py",  # Replace with your main Python file
+      "src": "app.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",    # Match all routes
-      "dest": "/app.py"  # Direct traffic to app.py
+      "src": "/(.*)",
+      "dest": "/app.py"
     }
   ]
 }
